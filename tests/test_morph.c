@@ -22,7 +22,7 @@ static void projection_sizes(void) {
                 for (int id = 0; id < c.particle_count; id += 7) {
                     Flow p = formation(&c,mode,id,step*.73);
                     assert(isfinite(p.x) && isfinite(p.y) && isfinite(p.light));
-                    assert(p.light >= .25 && p.light <= .98);
+                    assert(p.light >= (mode == 10 ? 0 : .25) && p.light <= .98);
                     if (mode == 4 || mode == 5) {
                         Flow after = formation(&c,mode,id,step*.73+.001);
                         /* Direction must hold for every word, not just the average. */
@@ -123,6 +123,24 @@ int main(void) {
         for (int bubble = 0; bubble < 6; ++bubble)
             assert(after[bubble] < before[bubble]);
     }
+    /* Every visible galaxy word moves inward; recycled words stay invisible. */
+    int infalling = 0, recycled = 0;
+    for (int step = 0; step < 200; ++step)
+        for (int id = 0; id < flag.particle_count; id += 3) {
+            double t = step*.37;
+            double phase = mod((id+.5)/flag.particle_count+t/48,1);
+            Flow a = formation(&flag,10,id,t), b = formation(&flag,10,id,t+.001);
+            if (phase > .05 && phase < .80) {
+                double ra = hypot((a.x/flag.width-.5)/.46,(a.y/flag.height-.5)/.44);
+                double rb = hypot((b.x/flag.width-.5)/.46,(b.y/flag.height-.5)/.44);
+                assert(rb < ra);
+                ++infalling;
+            } else if (phase > .84) {
+                assert(a.light == 0);
+                ++recycled;
+            }
+        }
+    assert(infalling > 1000 && recycled > 1000);
     Canvas c = {.width=120,.height=40,.columns=20,.particle_columns=22};
     c.particle_count = c.particle_columns*((int)ceil(c.height/2.5)+9);
     c.particles = calloc((size_t)c.particle_count,sizeof *c.particles);
@@ -148,6 +166,15 @@ int main(void) {
             assert(rendered > 60);
         }
     }
+    Options galaxy_options = o;
+    galaxy_options.mode = 10; galaxy_options.mode_auto = false;
+    reset_motion(&c,&galaxy_options,0,0);
+    for (int step = 0; step < 100; ++step) {
+        draw(&c,&galaxy_options,step*.5,4,1,step*.5);
+        for (int y = c.height/2-1; y <= c.height/2; ++y)
+            for (int x = c.width/2-2; x <= c.width/2+1; ++x)
+                assert(c.frame[y*c.width+x].glyph == -1);
+    }
     reset_motion(&c,&o,0,0);
     double max_step = 0;
     unsigned visited = 0;
@@ -160,7 +187,7 @@ int main(void) {
                 Flow a = motion_position(&c,id,time,time);
                 Flow b = motion_position(&c,id,time+1.0/60,time+1.0/60);
                 assert(isfinite(a.x) && isfinite(a.y) && isfinite(a.light));
-                assert(a.light >= .25 && a.light <= .98);
+                assert(a.light >= 0 && a.light <= .98);
                 double step = separation(a,b);
                 if (step > max_step) max_step = step;
                 assert(step < 2);
@@ -186,7 +213,7 @@ int main(void) {
     boundary(&c,MODE_COUNT*20+3.5,4);
     boundary(&c,MODE_COUNT*20+5.1,5);
     boundary(&c,MODE_COUNT*20+7.7,6);
-    fprintf(stderr,"Twenty morphs: continuous positions and velocities, no blackout; "
+    fprintf(stderr,"Twenty-two morphs: continuous positions and velocities, no blackout; "
            "max movement %.3f cells/frame. Mid-morph interruptions also continuous.\n",max_step);
     free(c.particles);
     free(c.streams);

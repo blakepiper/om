@@ -49,6 +49,8 @@ or malformed, try `./om --ascii` to check the animation independently.
   highlights over the folds and no fixed edge or flag outline.
 - **Lava:** soft bubbles of varied sizes swell, percolate upward, and dissolve
   near the top. Slow circulating words keep the whole screen active behind them.
+- **Galaxy:** six dense spiral arms feed words inward toward a dark central black
+  hole. The symbols whirl faster near the glowing core and disappear into it.
 - Nine palettes: rainbow, jade, lotus, glacier, ember, nebula, saffron, peacock, prism.
 - Each launch starts with a randomly chosen motion, curated palette, and animation
   phase. Explicit `--mode` and `--palette` choices stay pinned; `--seed N` repeats
@@ -57,7 +59,7 @@ or malformed, try `./om --ascii` to check the animation independently.
   gentle color wave moves across the screen throughout the transitions.
   The automatic cycle uses the eight curated palettes; the full rainbow preset
   is opt-in. The cycle follows river → lotus → bloom → incense → lanterns →
-  mandala → whirlpool → flag → lava → rain → river, starting at a randomly chosen formation.
+  mandala → whirlpool → flag → lava → galaxy → rain → river, starting at a randomly chosen formation.
   Each morph takes 24 seconds, without dimming the scene or
   replacing its words. The same words keep their identities while their paths,
   positions, and brightness blend into the next formation. The interpolation
@@ -140,6 +142,7 @@ The four written words stay intact; the visualization is an artistic treatment.
 ./om --mode whirlpool             # multiple swirling whirlpools
 ./om --mode flag                  # full-screen fabric-like ripples
 ./om --mode lava                  # rising lava lamp bubbles over a moving field
+./om --mode galaxy                # spiral arms feeding a central black hole
 ./om --mode lotus --palette prism # pin both the motion and palette
 ./om --fps 30 --speed 0.6          # a slower, lower-update-rate session
 ./om --color 256                  # for terminals without truecolor
@@ -176,7 +179,7 @@ output, both color depths, moving word positions, complete frames, motion contro
 tiny and large resizes, duration,
 signals, suspension, and restoration of terminal settings. They do not verify
 the host terminal's font rendering.
-The C trajectory checks simulate twenty complete morphs, checking position and
+The C trajectory checks simulate twenty-two complete morphs, checking position and
 velocity continuity, uninterrupted brightness, visible words throughout, and
 repeated destination changes during an active morph.
 They also verify leftward incense motion, upward lantern motion, and sustained

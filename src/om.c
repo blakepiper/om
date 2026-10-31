@@ -21,7 +21,7 @@
 #define PI 3.14159265358979323846
 #define SLOT 6
 #define PALETTE_COUNT 9
-#define MODE_COUNT 10
+#define MODE_COUNT 11
 
 typedef struct { double r, g, b; } Color;
 typedef struct { const char *name; Color stops[4]; } Palette;
@@ -36,7 +36,7 @@ static const Palette palettes[] = {
     {"prism",    {{65,55,211}, {230,66,152}, {249,174,69}, {62,231,200}}},
     {"rainbow",  {{0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}}},
 };
-static const char *modes[] = {"rain", "river", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool", "flag", "lava"};
+static const char *modes[] = {"rain", "river", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool", "flag", "lava", "galaxy"};
 /* Keep the words intact: never animate an isolated vowel mark or virama. */
 static const char *devanagari[] = {"ॐ", "मणि", "पद्मे", "हूँ"};
 static const char *latin[] = {"om", "mani", "padme", "hum"};
@@ -586,6 +586,21 @@ static Flow lava_lamp(const Canvas *c, int id, double t) {
                    +.12*cos(angle+.8)+.07*sin(t*.6+phase);
     return (Flow){x,y,clamp(mix(.25,light,growth),.25,.98)};
 }
+static Flow spiral_galaxy(const Canvas *c, int id, double t) {
+    const int arms = 6;
+    int arm = id%arms;
+    double phase = mod((id+.5)/c->particle_count+t/48,1);
+    /* Infall occupies most of the orbit. Recycle invisibly along a continuous
+       return path, so morphs can still preserve every particle's trajectory. */
+    double radius = phase < .84 ? 1.1-1.02*smoother(phase/.84)
+                               : .08+1.02*smoother((phase-.84)/.16);
+    double scatter = (variation(0,(unsigned)id+950000)-.5)*.23;
+    double angle = arm*2*PI/arms+5*radius+2*log(radius+.08)-t*.22+scatter;
+    double light = (.52+.17*sin(radius*11-t*.6)+.22*exp(-pow((radius-.22)/.1,2)))
+                 *smooth(phase/.04)*smooth((.82-phase)/.09);
+    return (Flow){c->width*(.5+.46*radius*cos(angle)),
+                  c->height*(.5+.44*radius*sin(angle)),clamp(light,0,.98)};
+}
 static Flow whirlpools(const Canvas *c, int id, double t) {
     int vortex = id%3, index = id/3;
     int count = (c->particle_count-1-vortex)/3+1;
@@ -610,6 +625,7 @@ static Flow formation(const Canvas *c, int mode, int id, double t) {
     if (mode == 7) return whirlpools(c,id,t);
     if (mode == 8) return rippling_flag(c,id,t);
     if (mode == 9) return lava_lamp(c,id,t);
+    if (mode == 10) return spiral_galaxy(c,id,t);
     int column = id%c->particle_columns, row = id/c->particle_columns;
     double extent = c->width+32.0;
     if (mode == 0) {
@@ -1138,6 +1154,39 @@ static void draw(Canvas *c, const Options *o, double t, int from, double fade,
                 mantra_fragment(c,o,id,(Flow){x,y,p.light},fragment,t,from,fade);
         }
     }
+    /* Keep the event horizon empty, including enlarged glyphs crossing it.
+       Dissolve the aperture with the formation and release it for gatherings. */
+    double motion_blend = smoother((timeline-c->motion.changed)/c->motion.duration);
+    double galaxy = ((c->motion.from == 10 ? 1-motion_blend : 0)
+                     +(c->motion.to == 10 ? motion_blend : 0))*(1-gather);
+    if (galaxy > .001) {
+        /* Two neighboring streams fill out each spiral arm. They share the
+           infall and fade in with the galaxy, then yield to the large mantra. */
+        for (int id = 0; id < c->particle_count; ++id) {
+            int column = id%c->particle_columns, row = id/c->particle_columns;
+            if (!included(row,column,o->density)) continue;
+            Flow p = spiral_galaxy(c,id,t);
+            double dx = (p.x-c->width*.5)/fmax(1,c->width);
+            double dy = (p.y-c->height*.5)/fmax(1,c->height);
+            for (int side = -1; side <= 1; side += 2) {
+                double angle = side*.15;
+                double x = c->width*(.5+dx*cos(angle)-dy*sin(angle));
+                double y = c->height*(.5+dx*sin(angle)+dy*cos(angle));
+                word(c,o,x,y,(column+row*3+(side == 1 ? 1 : 3))%4,
+                     p.light*galaxy*(1-gather),t,from,fade,0);
+            }
+        }
+    }
+    if (galaxy > 0) {
+        double rx = fmax(3,c->width*.055), ry = fmax(1.5,c->height*.055);
+        for (int y = 0; y < c->height; ++y)
+            for (int x = 0; x < c->width; ++x) {
+                double distance = hypot((x+.5-c->width*.5)/rx,(y+.5-c->height*.5)/ry);
+                double aperture = galaxy*smooth((1.2-distance)/.2);
+                if (aperture > variation(0,(unsigned)(y*c->width+x)+960000))
+                    c->frame[y*c->width+x] = (Tile){.glyph=-1};
+            }
+    }
     /* At the height of inflation the letter strokes merge into a single
        luminous field. A spatial dissolve carries the field back into ink. */
     if (c->mantra_stage == 2 && (c->gathering.style == 3 || c->gathering.style == 4)) {
@@ -1176,7 +1225,7 @@ static void usage(FILE *out) {
     fputs("om — a full-terminal mantra visualizer\n\n"
           "Usage: ./om [options]\n\n"
           "  --mode NAME       river, bloom, lotus, rain, incense, lanterns, mandala, whirlpool, flag,\n"
-          "                    lava, cycle (default: cycle)\n"
+          "                    lava, galaxy, cycle (default: cycle)\n"
           "  --palette NAME    pin a palette (default: blend curated palettes)\n"
           "  --fps N           frames per second, 5..60 (default: 60)\n"
           "  --speed N         animation speed, 0.1..5 (default: 1)\n"
