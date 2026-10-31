@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cache_dir="$project_dir/.cache"
+mkdir -p -- "$cache_dir"
+# Include the compiler path: changing the locked toolchain invalidates the cache.
+compiler="$(command -v "${CC:-cc}")"
+if [[ ! -x "$cache_dir/om" || "$project_dir/src/om.c" -nt "$cache_dir/om" ||
+      "$project_dir/src/mantra.h" -nt "$cache_dir/om" ||
+      "$project_dir/scripts/run" -nt "$cache_dir/om" ||
+      ! -f "$cache_dir/compiler" || "$(cat "$cache_dir/compiler")" != "$compiler" ]]; then
+  build_file="$(mktemp "$cache_dir/om.XXXXXX")"
+  trap 'rm -f -- "$build_file"' EXIT
+  "$compiler" -std=c11 -O2 -Wall -Wextra -Wpedantic \
+    "$project_dir/src/om.c" -lm -o "$build_file"
+  mv -f -- "$build_file" "$cache_dir/om"
+  printf '%s\n' "$compiler" > "$cache_dir/compiler"
+fi
+exec "$cache_dir/om" "$@"

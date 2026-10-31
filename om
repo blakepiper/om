@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if ! command -v nix >/dev/null 2>&1; then
+  echo 'om: Nix is required. See https://nixos.org/download/' >&2
+  exit 1
+fi
+
+exec nix --extra-experimental-features 'nix-command flakes' develop \
+  "path:$project_dir" --command bash "$project_dir/scripts/run" "$@"
