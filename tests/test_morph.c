@@ -78,6 +78,51 @@ int main(void) {
     assert(openings == (1u << MODE_COUNT)-1);
     assert(colors == (1u << (PALETTE_COUNT-1))-1);
     projection_sizes();
+    /* Ripples move both sides and keep words in every region of the viewport. */
+    Canvas flag = {.width=120,.height=40,.particle_columns=22,.particle_count=550};
+    for (int step = 0; step < 120; ++step) {
+        unsigned covered = 0;
+        for (int id = 0; id < flag.particle_count; ++id) {
+            Flow p = formation(&flag,8,id,step*.1);
+            if (p.x >= 0 && p.x < flag.width && p.y >= 0 && p.y < flag.height) {
+                int col = (int)(p.x/flag.width*4), row = (int)(p.y/flag.height*4);
+                covered |= 1u << (row*4+col);
+            }
+        }
+        assert(covered == 0xffff);
+    }
+    for (int column = 0; column < flag.particle_columns; ++column) {
+        Flow initial = formation(&flag,8,column,0);
+        double movement = 0, lighting = 0;
+        for (int step = 1; step < 120; ++step) {
+            Flow p = formation(&flag,8,column,step*.1);
+            movement = fmax(movement,separation(initial,p));
+            lighting = fmax(lighting,fabs(initial.light-p.light));
+        }
+        assert(movement > 3 && lighting > .2);
+    }
+    /* Lava retains background activity in all regions while each bubble rises. */
+    for (int step = 0; step < 240; ++step) {
+        double t = step*.5;
+        unsigned covered = 0;
+        double before[6] = {0}, after[6] = {0};
+        for (int id = 0; id < flag.particle_count; ++id) {
+            Flow p = formation(&flag,9,id,t);
+            if (id%2 == 0) {
+                double x = mod(p.x+16,flag.width+32.0)-16;
+                double y = mod(p.y+12,flag.height+24.0)-12;
+                if (x >= 0 && x < flag.width && y >= 0 && y < flag.height)
+                    covered |= 1u << ((int)(y/flag.height*4)*4+(int)(x/flag.width*4));
+            } else {
+                int bubble = (id/2)%6;
+                before[bubble] += p.y;
+                after[bubble] += formation(&flag,9,id,t+.01).y;
+            }
+        }
+        assert(covered == 0xffff);
+        for (int bubble = 0; bubble < 6; ++bubble)
+            assert(after[bubble] < before[bubble]);
+    }
     Canvas c = {.width=120,.height=40,.columns=20,.particle_columns=22};
     c.particle_count = c.particle_columns*((int)ceil(c.height/2.5)+9);
     c.particles = calloc((size_t)c.particle_count,sizeof *c.particles);
@@ -141,7 +186,7 @@ int main(void) {
     boundary(&c,MODE_COUNT*20+3.5,4);
     boundary(&c,MODE_COUNT*20+5.1,5);
     boundary(&c,MODE_COUNT*20+7.7,6);
-    fprintf(stderr,"Fourteen morphs: continuous positions and velocities, no blackout; "
+    fprintf(stderr,"Twenty morphs: continuous positions and velocities, no blackout; "
            "max movement %.3f cells/frame. Mid-morph interruptions also continuous.\n",max_step);
     free(c.particles);
     free(c.streams);

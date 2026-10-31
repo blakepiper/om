@@ -45,6 +45,10 @@ or malformed, try `./om --ascii` to check the animation independently.
 - **Mandala:** concentric prayer wheels turn in alternating directions. Eight
   luminous gates align and slip apart as the rings breathe, making a slowly
   changing geometric pattern across the screen.
+- **Flag:** waves ripple through words across the whole screen, with moving
+  highlights over the folds and no fixed edge or flag outline.
+- **Lava:** soft bubbles of varied sizes swell, percolate upward, and dissolve
+  near the top. Slow circulating words keep the whole screen active behind them.
 - Nine palettes: rainbow, jade, lotus, glacier, ember, nebula, saffron, peacock, prism.
 - Each launch starts with a randomly chosen motion, curated palette, and animation
   phase. Explicit `--mode` and `--palette` choices stay pinned; `--seed N` repeats
@@ -53,7 +57,7 @@ or malformed, try `./om --ascii` to check the animation independently.
   gentle color wave moves across the screen throughout the transitions.
   The automatic cycle uses the eight curated palettes; the full rainbow preset
   is opt-in. The cycle follows river → lotus → bloom → incense → lanterns →
-  mandala → whirlpool → rain → river, starting at a randomly chosen formation.
+  mandala → whirlpool → flag → lava → rain → river, starting at a randomly chosen formation.
   Each morph takes 24 seconds, without dimming the scene or
   replacing its words. The same words keep their identities while their paths,
   positions, and brightness blend into the next formation. The interpolation
@@ -75,14 +79,14 @@ or malformed, try `./om --ascii` to check the animation independently.
   neighboring rows share their
   brightness to soften cell boundaries. Frames are composed before display and
   use synchronized terminal updates where supported to avoid clearing flicker.
-- About once a minute, the small words gather into a large `ॐ मणि पद्मे हूँ`.
+- About once every two minutes, the small words gather into a large `ॐ मणि पद्मे हूँ`.
   Each gathering randomly chooses curling, waving, or scattered paths, taking
   4.5–7 seconds to assemble and another 4.5–7 seconds to dissolve. The complete
   block gently hovers, bounces around the screen like a DVD screensaver, or makes
   a horizontal ticker pass in either direction. Holds vary from 3–13 seconds,
   with longer holds for traveling text and shorter ones at small mantra intervals.
   Its size varies between gatherings and gently pulses while formed. The first
-  gathering starts after 15 seconds and finishes assembling around 20–22 seconds.
+  gathering starts after 30 seconds and finishes assembling around 35–37 seconds.
   Each gathering word carries a small piece of the Devanagari strokes along its
   path, gradually condensing into that piece as it approaches. The pieces join
   into bright, filled letters and travel apart again during dissolution; there
@@ -134,6 +138,8 @@ The four written words stay intact; the visualization is an artistic treatment.
 ./om --mode lanterns              # glowing words rising from bottom to top
 ./om --mode mandala               # breathing, counter-rotating prayer wheels
 ./om --mode whirlpool             # multiple swirling whirlpools
+./om --mode flag                  # full-screen fabric-like ripples
+./om --mode lava                  # rising lava lamp bubbles over a moving field
 ./om --mode lotus --palette prism # pin both the motion and palette
 ./om --fps 30 --speed 0.6          # a slower, lower-update-rate session
 ./om --color 256                  # for terminals without truecolor
@@ -170,7 +176,7 @@ output, both color depths, moving word positions, complete frames, motion contro
 tiny and large resizes, duration,
 signals, suspension, and restoration of terminal settings. They do not verify
 the host terminal's font rendering.
-The C trajectory checks simulate fourteen complete morphs, checking position and
+The C trajectory checks simulate twenty complete morphs, checking position and
 velocity continuity, uninterrupted brightness, visible words throughout, and
 repeated destination changes during an active morph.
 They also verify leftward incense motion, upward lantern motion, and sustained

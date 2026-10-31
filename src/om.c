@@ -21,7 +21,7 @@
 #define PI 3.14159265358979323846
 #define SLOT 6
 #define PALETTE_COUNT 9
-#define MODE_COUNT 8
+#define MODE_COUNT 10
 
 typedef struct { double r, g, b; } Color;
 typedef struct { const char *name; Color stops[4]; } Palette;
@@ -36,7 +36,7 @@ static const Palette palettes[] = {
     {"prism",    {{65,55,211}, {230,66,152}, {249,174,69}, {62,231,200}}},
     {"rainbow",  {{0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}}},
 };
-static const char *modes[] = {"rain", "river", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool"};
+static const char *modes[] = {"rain", "river", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool", "flag", "lava"};
 /* Keep the words intact: never animate an isolated vowel mark or virama. */
 static const char *devanagari[] = {"ॐ", "मणि", "पद्मे", "हूँ"};
 static const char *latin[] = {"om", "mani", "padme", "hum"};
@@ -525,6 +525,67 @@ static Flow turning_mandala(const Canvas *c, int id, double t) {
     return (Flow){c->width*.5+rx*radius*cos(angle),
                   c->height*.5+ry*radius*sin(angle),clamp(light,.25,.98)};
 }
+static Flow rippling_flag(const Canvas *c, int id, double t) {
+    int column = id%c->particle_columns, row = id/c->particle_columns;
+    int rows = c->particle_count/c->particle_columns;
+    double u = column/(double)c->particle_columns;
+    double v = row/(double)rows;
+    /* Tile the whole viewport, including offscreen margins. Shared traveling
+       folds ripple everywhere without an anchored edge or a fabric outline.
+       Spatial phases repeat at the wrap boundaries to keep the sheet seamless. */
+    double phase = 2*PI*(2*u+v)-t*1.65;
+    double flutter = 2*PI*(4*u-v)-t*2.7;
+    double gust = .85+.15*sin(t*.37);
+    double fold = sin(phase)+.22*sin(flutter);
+    double x = (c->width+32.0)*u-16
+             + fmin(3,c->width*.02)*gust*cos(phase);
+    double y = (c->height+24.0)*v-12
+             + fmin(4,c->height*.095)*gust*fold;
+    /* Moving highlights follow the fabric's slope, rather than individual words. */
+    double slope = gust*(cos(phase)+.51*cos(flutter));
+    double light = clamp(.65+.23*slope-.08*gust*fold,.25,.98);
+    return (Flow){x,y,light};
+}
+static Flow lava_lamp(const Canvas *c, int id, double t) {
+    double width = c->width+32.0, height = c->height+24.0;
+    if (id%2 == 0) {
+        /* Keep a circulating field behind the bubbles across the entire screen. */
+        int index = id/2, column = index%c->particle_columns;
+        int rows = ((c->particle_count+1)/2+c->particle_columns-1)/c->particle_columns;
+        double u = column/(double)c->particle_columns;
+        double y = (index/c->particle_columns)*height/rows-12-t*.65;
+        double phase = 2*PI*y/height;
+        double x = width*u-16+3*sin(phase+t*.23+2*PI*u);
+        y += 1.2*sin(2*PI*u+t*.32);
+        return (Flow){x,y,.36+.10*sin(phase+t*.4+4*PI*u)};
+    }
+    int bubbles = (int)clamp(c->width/20,4,12);
+    int index = id/2, bubble = index%bubbles, point = index/bubbles;
+    int total = c->particle_count/2;
+    int count = (total-1-bubble)/bubbles+1;
+    unsigned key = 900000+(unsigned)bubble*7;
+    double phase = variation(0,key)*2*PI;
+    double speed = 1.2+1.6*variation(0,key+1);
+    double center_y = height*(.1+variation(0,key+2))-t*speed;
+    double travel = mod((c->height+12-center_y)/height,1);
+    /* Birth and dissolution happen outside the viewport. Unwrapped centers
+       preserve continuous trajectories when a bubble returns from the top. */
+    double growth = smooth(travel/.18)*smooth((1-travel)/.18);
+    double radius = fmin(c->height*.19,c->width*.105)
+                  *(.45+1.05*variation(0,key+3))*growth;
+    radius *= .90+.10*sin(t*.31+phase);
+    double center_x = c->width*(.08+.84*variation(0,key+4))
+                    + fmin(6,c->width*.045)*sin(t*.27+phase);
+    double angle = point*2.399963+t*.16;
+    double fraction = sqrt((point+.5)/count);
+    double shape = 1+.11*sin(3*angle+t*.7+phase)
+                    +.07*cos(2*angle-t*.48);
+    double x = center_x+2*radius*fraction*cos(angle)*shape;
+    double y = center_y+radius*fraction*sin(angle)*shape;
+    double light = .55+.22*(1-fraction*fraction)
+                   +.12*cos(angle+.8)+.07*sin(t*.6+phase);
+    return (Flow){x,y,clamp(mix(.25,light,growth),.25,.98)};
+}
 static Flow whirlpools(const Canvas *c, int id, double t) {
     int vortex = id%3, index = id/3;
     int count = (c->particle_count-1-vortex)/3+1;
@@ -547,6 +608,8 @@ static Flow formation(const Canvas *c, int mode, int id, double t) {
     if (mode == 5) return rising_lanterns(c,id,t);
     if (mode == 6) return turning_mandala(c,id,t);
     if (mode == 7) return whirlpools(c,id,t);
+    if (mode == 8) return rippling_flag(c,id,t);
+    if (mode == 9) return lava_lamp(c,id,t);
     int column = id%c->particle_columns, row = id/c->particle_columns;
     double extent = c->width+32.0;
     if (mode == 0) {
@@ -1112,15 +1175,15 @@ static void draw(Canvas *c, const Options *o, double t, int from, double fade,
 static void usage(FILE *out) {
     fputs("om — a full-terminal mantra visualizer\n\n"
           "Usage: ./om [options]\n\n"
-          "  --mode NAME       river, bloom, lotus, rain, incense, lanterns, mandala, whirlpool,\n"
-          "                    cycle (default: cycle)\n"
+          "  --mode NAME       river, bloom, lotus, rain, incense, lanterns, mandala, whirlpool, flag,\n"
+          "                    lava, cycle (default: cycle)\n"
           "  --palette NAME    pin a palette (default: blend curated palettes)\n"
           "  --fps N           frames per second, 5..60 (default: 60)\n"
           "  --speed N         animation speed, 0.1..5 (default: 1)\n"
           "  --density N       glyph density, 0.2..1 (default: 0.95)\n"
           "  --interval N      seconds per palette, 5..3600 (default: 8)\n"
           "  --scene-interval N  seconds per seamless morph, 10..3600 (default: 24)\n"
-          "  --mantra-interval N  seconds between large mantra formations, 32..3600 (default: 60)\n"
+          "  --mantra-interval N  seconds between large mantra formations, 32..3600 (default: 120)\n"
           "  --no-mantra       disable the large mantra gatherings\n"
           "  --color MODE      auto, truecolor, 256 (default: auto)\n"
           "  --ascii           use Latin words instead of Devanagari\n"
@@ -1212,7 +1275,7 @@ static double startup_animation(Options *o) {
 int main(int argc, char **argv) {
     struct timespec seed_time;
     clock_gettime(CLOCK_REALTIME,&seed_time);
-    Options o = {.fps=60,.palette=4,.mode=1,.speed=1,.density=.95,.interval=8,.scene_interval=24,.mantra_interval=60,
+    Options o = {.fps=60,.palette=4,.mode=1,.speed=1,.density=.95,.interval=8,.scene_interval=24,.mantra_interval=120,
                  .palette_auto=true,.mode_auto=true,
                  .seed=(unsigned)seed_time.tv_sec ^ (unsigned)seed_time.tv_nsec ^ ((unsigned)getpid()*0x9e3779b9u)};
     int parsed = parse(argc,argv,&o);

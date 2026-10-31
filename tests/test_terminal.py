@@ -117,7 +117,7 @@ class VisualizerTests(unittest.TestCase):
         self.assert_clean(t)
 
     def test_all_motions_and_color_depths(self):
-        for mode in ("rain", "river", "aurora", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool"):
+        for mode in ("rain", "river", "aurora", "lotus", "bloom", "incense", "lanterns", "mandala", "whirlpool", "flag", "lava"):
             with self.subTest(mode=mode):
                 t = self.terminal("--mode", mode, "--color", "256", "--ascii", "--no-hint")
                 t.collect(.25)
